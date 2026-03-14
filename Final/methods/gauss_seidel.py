@@ -4,68 +4,108 @@ import pandas as pd
 import re
 
 
-def gauss_seidel(A, b, tol=1e-4, max_iter=50):
+# -------------------------------
+# Gauss Seidel Algorithm
+# -------------------------------
+def gauss_seidel(A, b, tol=1e-6, max_iter=50):
 
-    n = len(b)
+    n = len(A)
     x = np.zeros(n)
-
     table = []
 
     for k in range(max_iter):
 
-        x_new = x.copy()
+        x_new = np.copy(x)
 
         for i in range(n):
 
             s1 = sum(A[i][j] * x_new[j] for j in range(i))
-            s2 = sum(A[i][j] * x[j] for j in range(i+1,n))
+            s2 = sum(A[i][j] * x[j] for j in range(i+1, n))
 
             x_new[i] = (b[i] - s1 - s2) / A[i][i]
 
         error = np.linalg.norm(x_new - x)
 
-        table.append([k+1, x_new[0], x_new[1], x_new[2], error])
+        row = [k+1] + [round(float(v),4) for v in x_new] + [round(float(error),6)]
+        table.append(row)
 
         if error < tol:
-            return x_new, table
+            break
 
         x = x_new
 
-    return x, table
+    return x_new, table
 
 
+# -------------------------------
+# Streamlit App
+# -------------------------------
 def gauss_seidel_app():
 
     st.header("Gauss Seidel Method")
 
-    st.write("Enter coefficients of equations")
+    n = st.number_input(
+        "Matrix Size (n × n)",
+        min_value=2,
+        max_value=10,
+        value=3,
+        step=1
+    )
 
-    # Default example values added
-    a1 = st.text_input("Row 1 of Matrix A", value="10 1 1")
-    a2 = st.text_input("Row 2 of Matrix A", value="2 10 1")
-    a3 = st.text_input("Row 3 of Matrix A", value="2 2 10")
+    st.subheader("Enter Matrix A")
 
-    b_input = st.text_input("Vector b", value="12 13 14")
+    rows = []
+
+    for i in range(n):
+
+        row = st.text_input(
+            f"Row {i+1}",
+            value=" ".join(["1"]*n)
+        )
+
+        rows.append(row)
+
+    b_input = st.text_input(
+        "Vector b",
+        value=" ".join(["1"]*n)
+    )
 
     if st.button("Solve"):
 
         try:
 
-            row1 = [float(i) for i in re.split(r'[ ,]+', a1.strip())]
-            row2 = [float(i) for i in re.split(r'[ ,]+', a2.strip())]
-            row3 = [float(i) for i in re.split(r'[ ,]+', a3.strip())]
+            A = []
 
-            b = [float(i) for i in re.split(r'[ ,]+', b_input.strip())]
+            for r in rows:
 
-            A = np.array([row1,row2,row3])
+                if r.strip() == "":
+                    r = " ".join(["1"] * n)
+
+                values = re.split(r'[ ,]+', r.strip())
+
+                while len(values) < n:
+                    values.append("1")
+
+                A.append([float(i) for i in values[:n]])
+
+            if b_input.strip() == "":
+                b_input = " ".join(["1"] * n)
+
+            b_values = re.split(r'[ ,]+', b_input.strip())
+
+            while len(b_values) < n:
+                b_values.append("1")
+
+            b = [float(i) for i in b_values[:n]]
+
+            A = np.array(A)
             b = np.array(b)
 
-            solution, table = gauss_seidel(A,b)
+            solution, table = gauss_seidel(A, b)
 
-            df = pd.DataFrame(
-                table,
-                columns=["Iteration","x","y","z","Error"]
-            )
+            columns = ["Iteration"] + [f"x{i+1}" for i in range(n)] + ["Error"]
+
+            df = pd.DataFrame(table, columns=columns)
 
             st.subheader("Iteration Table")
             st.dataframe(df)
@@ -74,6 +114,7 @@ def gauss_seidel_app():
 
             st.success(f"Final Solution: {solution}")
 
-        except:
+        except Exception as e:
 
-            st.error("Invalid input format")
+            st.error("Invalid Input Format")
+            st.write(e)
